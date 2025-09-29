@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GPU Shadow</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- core three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
+
+    <script>
+
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; // ✅ เปิดใช้งานเงา!
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        document.body.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+
+        // ✅ กล้อง
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 2, 5);
+        camera.lookAt(0, 0, 0);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        //เพิ่มแสง
+        const AmbientLight = new THREE.AmbientLight(0x504540);
+        scene.add(AmbientLight);
+
+        //สร้างเงา
+        const directionalLight = new THREE.DirectionalLight(0xffffee,1);
+        directionalLight.position.set(10,5,10);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        //pointLight
+        const pointLight = new THREE.PointLight(0xffffee,0.8,8);
+        pointLight.position.set(0,3,1);
+        pointLight.castShadow = true ;
+        scene.add(pointLight);
+        const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.1); // (แสง, ขนาดของ helper)
+        scene.add(pointLightHelper);
+
+
+
+        // ✅ โหลด texture
+        const texFloor = new THREE.TextureLoader().load(
+    'https://raw.githubusercontent.com/Chiratha/UV/main/concrete_pavers_02_diff_1k.jpg',
+    t => {
+        t.wrapS = THREE.RepeatWrapping;
+        t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(3, 3); // ตั้งจำนวนการซ้ำ (ถ้าต้องการ)
+    }
+);
+
+// ✅ สร้าง material จาก texture
+        const matFloor = new THREE.MeshStandardMaterial({
+            map: texFloor
+});
+
+// ✅ พื้น
+        const planeGeometry = new THREE.PlaneGeometry(10, 10);
+        const plane = new THREE.Mesh(planeGeometry, matFloor); // ✅ ใช้ matFloor แทน planeMaterial
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = 0;
+        plane.receiveShadow = true;
+        scene.add(plane);
+
+        // ✅ render loop
+        function animate(t) {
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate(0);
+
+        window.addEventListener('keydown', (event) => {
+
+        });
+
+        const exrLoader = new THREE.EXRLoader();
+exrLoader.load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/cloudy_vondelpark_1k.exr',
+  function (texture) {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+
+    // ใช้เป็นพื้นหลัง (Background)
+    scene.background = texture;
+
+    // ใช้เป็นแสง Environment ให้โมเดลสะท้อน
+    scene.environment = texture;
+
+    console.log('✅ Environment EXR Loaded');
+  },
+  undefined,
+  function (error) {
+    console.error('❌ Error loading EXR:', error);
+  }
+);
+        //เก้าอี้
+        const textureLoader = new THREE.TextureLoader();
+        const shipTexture = textureLoader.load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/Wood.144_baseColor.jpeg');
+
+        const loader = new THREE.OBJLoader();
+    loader.load(
+    'https://raw.githubusercontent.com/Chiratha/ALL_Model/refs/heads/main/chir.obj',
+    function(object) {
+        object.scale.set(1.0, 1.0, 1.0);
+
+        object.traverse(function(child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+
+                // ใช้ texture เดียวสำหรับทุก mesh
+                if (!child.material.map) {
+                    child.material = new THREE.MeshStandardMaterial({
+                        map: shipTexture
+                    });
+                }
+            }
+        });
+
+        object.position.set(0, 0, 0);
+        scene.add(object);
+    },
+    undefined,
+    function(error) {
+        console.error('Error loading OBJ:', error);
+    }
+);
+    //ตู้โทรศัพท์
+    // ✅ โหลด texture ของตู้โทรศัพท์
+const phoneTexture = new THREE.TextureLoader().load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/Red_Part_baseColor.jpeg'
+);
+
+// ✅ โหลดโมเดลตู้โทรศัพท์
+const phoneLoader = new THREE.OBJLoader();
+phoneLoader.load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/refs/heads/main/phone.obj',
+  function (object) {
+    object.scale.set(1.0, 1.0, 1.0);
+
+    object.traverse(function (child) {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        // ✅ ใส่ texture สีแดง
+        child.material = new THREE.MeshStandardMaterial({
+          map: phoneTexture
+        });
+      }
+    });
+
+    object.position.set(3, 2.0, -2.2);
+    scene.add(object);
+  },
+  undefined,
+  function (error) {
+    console.error('Error loading phone OBJ:', error);
+  }
+);
+    
+    </script>
+</body>
+
+</html>
