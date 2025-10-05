@@ -17,6 +17,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+
 
     <script>
 
@@ -45,14 +48,61 @@
         scene.add(AmbientLight);
 
         //สร้างเงา
-        const directionalLight = new THREE.DirectionalLight(0xffffee,1);
-        directionalLight.position.set(10,5,10);
-        directionalLight.castShadow = true;
-        scene.add(directionalLight);
+        // ✅ ลบ directionalLight เดิมก่อน (หรือคอมเมนต์ไว้)
+
+function updateSunlight() {
+  const now = new Date();
+  const hour = now.getHours();
+
+  let sunColor, sunIntensity, sunPosition;
+
+  if (hour >= 5 && hour < 8) {
+    // 🌅 เช้า
+    sunColor = 0xffc58f;
+    sunIntensity = 0.6;
+    sunPosition = new THREE.Vector3(5, 2, 5);
+  } else if (hour >= 8 && hour < 16) {
+    // ☀️ เที่ยง
+    sunColor = 0xffffff;
+    sunIntensity = 1.0;
+    sunPosition = new THREE.Vector3(10, 8, 10);
+  } else if (hour >= 16 && hour < 19) {
+    // 🌇 พระอาทิตย์ตก
+    sunColor = 0xff9e6b;
+    sunIntensity = 0.6;
+    sunPosition = new THREE.Vector3(-5, 3, -5);
+  } else {
+    // 🌙 กลางคืน
+    sunColor = 0x4a6fa5;
+    sunIntensity = 0.2;
+    sunPosition = new THREE.Vector3(0, 1, 0);
+  }
+
+  // ✅ ลบแสงเก่าถ้ามี
+  if (scene.userData.sunLight) {
+    scene.remove(scene.userData.sunLight);
+  }
+
+  // ✅ สร้างแสงใหม่
+  const sunLight = new THREE.DirectionalLight(sunColor, sunIntensity);
+  sunLight.position.copy(sunPosition);
+  sunLight.castShadow = true;
+  scene.add(sunLight);
+
+  // เก็บไว้ใน scene.userData
+  scene.userData.sunLight = sunLight;
+}
+
+// ✅ เรียกตอนเริ่ม
+updateSunlight();
+
+// ✅ อัปเดตทุก 5 นาที (300,000ms)
+setInterval(updateSunlight, 300000);
+
 
         //pointLight
         const pointLight = new THREE.PointLight(0xffffee,0.8,8);
-        pointLight.position.set(0,3,1);
+        pointLight.position.set(0,4,1);
         pointLight.castShadow = true ;
         scene.add(pointLight);
         const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.1); // (แสง, ขนาดของ helper)
@@ -62,7 +112,7 @@
 
         // ✅ โหลด texture
         const texFloor = new THREE.TextureLoader().load(
-    'https://raw.githubusercontent.com/Chiratha/UV/main/concrete_pavers_02_diff_1k.jpg',
+    'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/rocky_terrain_02_diff_1k.jpg',
     t => {
         t.wrapS = THREE.RepeatWrapping;
         t.wrapT = THREE.RepeatWrapping;
@@ -96,7 +146,7 @@
 
         const exrLoader = new THREE.EXRLoader();
 exrLoader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/cloudy_vondelpark_1k.exr',
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/citrus_orchard_road_puresky_1k.exr',
   function (texture) {
     texture.mapping = THREE.EquirectangularReflectionMapping;
 
@@ -115,13 +165,13 @@ exrLoader.load(
 );
         //เก้าอี้
         const textureLoader = new THREE.TextureLoader();
-        const shipTexture = textureLoader.load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/Wood.144_baseColor.jpeg');
+        const chirTexture = textureLoader.load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/Wood.144_baseColor.jpeg');
 
         const loader = new THREE.OBJLoader();
     loader.load(
     'https://raw.githubusercontent.com/Chiratha/ALL_Model/refs/heads/main/chir.obj',
     function(object) {
-        object.scale.set(1.0, 1.0, 1.0);
+        object.scale.set(0.5, 0.5, 0.5);
 
         object.traverse(function(child) {
             if (child.isMesh) {
@@ -131,7 +181,7 @@ exrLoader.load(
                 // ใช้ texture เดียวสำหรับทุก mesh
                 if (!child.material.map) {
                     child.material = new THREE.MeshStandardMaterial({
-                        map: shipTexture
+                        map: chirTexture
                     });
                 }
             }
@@ -156,7 +206,7 @@ const phoneLoader = new THREE.OBJLoader();
 phoneLoader.load(
   'https://raw.githubusercontent.com/Chiratha/ALL_Model/refs/heads/main/phone.obj',
   function (object) {
-    object.scale.set(1.0, 1.0, 1.0);
+    object.scale.set(0.5, 0.5, 0.5);
 
     object.traverse(function (child) {
       if (child.isMesh) {
@@ -170,7 +220,7 @@ phoneLoader.load(
       }
     });
 
-    object.position.set(3, 2.0, -2.2);
+    object.position.set(3, 1.0, -2.2);
     scene.add(object);
   },
   undefined,
@@ -178,7 +228,146 @@ phoneLoader.load(
     console.error('Error loading phone OBJ:', error);
   }
 );
+
+  const teaShopLoader = new THREE.GLTFLoader();
+teaShopLoader.load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/japanese_tea_shop.glb',
+  function (gltf) {
+    const model = gltf.scene;
+    model.position.set(-2, 0.4, -2.5);// ✅ ปรับตำแหน่งเริ่มต้น
+    model.scale.set(1, 1, 1);
+
+    // ✅ ให้รับแสงและเงา
+    model.traverse(function (child) {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    scene.add(model);
+  },
+  undefined,
+  function (error) {
+    console.error('Error loading GLB:', error);
+  }
+);
+
+  const treeLoader = new THREE.GLTFLoader();
+treeLoader.load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/platano_tree.glb',
+  function (gltf) {
+    const model = gltf.scene;
+    model.position.set(2, 0, -3.5);
+    model.scale.set(0.005, 0.005, 0.005);
+    model.traverse(function (child) {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    scene.add(model);
+  },
+  undefined,
+  function (error) {
+    console.error('Error loading GLB:', error);
+  }
+);
+
+    // ป้ายถนน
+  const signLoader = new THREE.GLTFLoader();
+signLoader.load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/pavement_sign_a_board.glb',
+  function (gltf) {
+    const model = gltf.scene;
     
+    // ✅ ปรับตำแหน่ง (แก้ไขได้ตามต้องการ)
+    model.position.set(0.5, 0.1, -1.0);
+
+    // ✅ ปรับขนาด (ถ้าใหญ่หรือเล็กไปแก้ค่าได้)
+    model.scale.set(0.25, 0.25, 0.25);
+
+    // ✅ เปิดรับแสงและเงา
+    model.traverse(function (child) {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    // ✅ เพิ่มเข้า scene
+    scene.add(model);
+  },
+  undefined,
+  function (error) {
+    console.error('Error loading GLB:', error);
+  }
+);
+
+  // รูปฉันเองจ้าา
+  const MeLoader = new THREE.GLTFLoader();
+MeLoader.load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/name__1.glb',
+  function (gltf) {
+    const model = gltf.scene;
+    
+    model.position.set(2.4, 0.0, 2.0);
+    model.scale.set(0.5, 0.5, 0.5);
+
+    model.traverse(function (child) {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        if (child.material.map) {
+          child.material.map.anisotropy = 16;
+          child.material.map.minFilter = THREE.LinearMipmapLinearFilter;
+          child.material.map.magFilter = THREE.LinearFilter;
+        }
+      }
+    });
+
+    scene.add(model);
+  },
+  undefined,
+  function (error) {
+    console.error('Error loading GLB:', error);
+  }
+);
+
+    // ตรางมหาวิทยาลัย
+    const ku_Loader = new THREE.GLTFLoader();
+ku_Loader.load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/KU_1.glb',
+  function (gltf) {
+    const model = gltf.scene;
+    
+    // ✅ ปรับตำแหน่ง (แก้ไขได้ตามต้องการ)
+    model.position.set(0.5, 0.1, -1.0);
+
+    // ✅ ปรับขนาด (ถ้าใหญ่หรือเล็กไปแก้ค่าได้)
+    model.scale.set(0.25, 0.25, 0.25);
+
+    // ✅ เปิดรับแสงและเงา
+    model.traverse(function (child) {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    // ✅ เพิ่มเข้า scene
+    scene.add(model);
+  },
+  undefined,
+  function (error) {
+    console.error('Error loading GLB:', error);
+  }
+);
+
+    
+    
+
     </script>
 </body>
 
