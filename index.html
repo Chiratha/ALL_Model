@@ -1,374 +1,344 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>GPU Shadow</title>
+    <title>Interactive 3D Scene</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
+        body { margin: 0; overflow: hidden; }
+        #backBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
         }
     </style>
 </head>
-
 <body>
-    <!-- core three.js -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+<button id="backBtn">Back</button>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
 
+<script>
+// --- Scene & Renderer ---
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
 
-    <script>
+// --- Camera & Controls ---
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.5, 1000);
+camera.position.set(0,5,10);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true; // ✅ เปิดใช้งานเงา!
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// --- Lights ---
+scene.add(new THREE.AmbientLight(0x504540));
+const pointLight = new THREE.PointLight(0xffffee,0.8,8);
+pointLight.position.set(0,4,1);
+pointLight.castShadow = true;
+scene.add(pointLight);
+scene.add(new THREE.PointLightHelper(pointLight,0.1));
 
-        document.body.appendChild(renderer.domElement);
+// --- Sunlight ---
+function updateSunlight(){
+    const hour = new Date().getHours();
+    let color,intensity,pos;
+    if(hour>=5 && hour<8){ color=0xffc58f; intensity=0.6; pos=new THREE.Vector3(5,2,5);}
+    else if(hour>=8 && hour<16){ color=0xffffff; intensity=1; pos=new THREE.Vector3(10,8,10);}
+    else if(hour>=16 && hour<19){ color=0xff9e6b; intensity=0.6; pos=new THREE.Vector3(-5,3,-5);}
+    else{ color=0x4a6fa5; intensity=0.2; pos=new THREE.Vector3(0,1,0);}
+    if(scene.userData.sunLight) scene.remove(scene.userData.sunLight);
+    const sun = new THREE.DirectionalLight(color,intensity);
+    sun.position.copy(pos);
+    sun.castShadow = true;
+    scene.add(sun);
+    scene.userData.sunLight = sun;
+}
+updateSunlight();
+setInterval(updateSunlight,300000);
 
-        const scene = new THREE.Scene();
+// --- Floor ---
+const texFloor = new THREE.TextureLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/rocky_terrain_02_diff_1k.jpg', t=>{
+    t.wrapS=t.wrapT=THREE.RepeatWrapping;
+    t.repeat.set(3,3);
+});
+const plane = new THREE.Mesh(new THREE.PlaneGeometry(10,10), new THREE.MeshStandardMaterial({map:texFloor}));
+plane.rotation.x = -Math.PI/2;
+plane.receiveShadow = true;
+scene.add(plane);
 
-        // ✅ กล้อง
-        const camera = new THREE.PerspectiveCamera(
-            75,
-            window.innerWidth / window.innerHeight,
-            0.1,
-            1000
-        );
-        camera.position.set(0, 2, 5);
-        camera.lookAt(0, 0, 0);
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+// --- Sky ---
+new THREE.EXRLoader().load(
+    'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/citrus_orchard_road_puresky_1k.exr',
+    function(texture){ 
+        texture.mapping=THREE.EquirectangularReflectionMapping; 
+        scene.background=texture; 
+        scene.environment=texture; 
+    }
+);
 
-        //เพิ่มแสง
-        const AmbientLight = new THREE.AmbientLight(0x504540);
-        scene.add(AmbientLight);
+// --- Global ---
+const clock = new THREE.Clock();
+let bubbleIsland, manta, whale, tree, mixer;
+let leavesMeshes = [];
+let mantaDirection = 1;
+const mantaSpeed = 0.02, mantaRange=[-2,2], mantaAmplitude=0.5, mantaFrequency=1.0;
 
-        //สร้างเงา
-        // ✅ ลบ directionalLight เดิมก่อน (หรือคอมเมนต์ไว้)
-
-function updateSunlight() {
-  const now = new Date();
-  const hour = now.getHours();
-
-  let sunColor, sunIntensity, sunPosition;
-
-  if (hour >= 5 && hour < 8) {
-    // 🌅 เช้า
-    sunColor = 0xffc58f;
-    sunIntensity = 0.6;
-    sunPosition = new THREE.Vector3(5, 2, 5);
-  } else if (hour >= 8 && hour < 16) {
-    // ☀️ เที่ยง
-    sunColor = 0xffffff;
-    sunIntensity = 1.0;
-    sunPosition = new THREE.Vector3(10, 8, 10);
-  } else if (hour >= 16 && hour < 19) {
-    // 🌇 พระอาทิตย์ตก
-    sunColor = 0xff9e6b;
-    sunIntensity = 0.6;
-    sunPosition = new THREE.Vector3(-5, 3, -5);
-  } else {
-    // 🌙 กลางคืน
-    sunColor = 0x4a6fa5;
-    sunIntensity = 0.2;
-    sunPosition = new THREE.Vector3(0, 1, 0);
-  }
-
-  // ✅ ลบแสงเก่าถ้ามี
-  if (scene.userData.sunLight) {
-    scene.remove(scene.userData.sunLight);
-  }
-
-  // ✅ สร้างแสงใหม่
-  const sunLight = new THREE.DirectionalLight(sunColor, sunIntensity);
-  sunLight.position.copy(sunPosition);
-  sunLight.castShadow = true;
-  scene.add(sunLight);
-
-  // เก็บไว้ใน scene.userData
-  scene.userData.sunLight = sunLight;
+// --- Clickable Objects ---
+const clickable = [];
+function addObj(mesh,pos,name){
+    mesh.position.copy(pos);
+    mesh.name=name;
+    scene.add(mesh);
+    clickable.push(mesh);
+    return mesh;
 }
 
-// ✅ เรียกตอนเริ่ม
-updateSunlight();
+// --- Load Models ---
 
-// ✅ อัปเดตทุก 5 นาที (300,000ms)
-setInterval(updateSunlight, 300000);
-
-
-        //pointLight
-        const pointLight = new THREE.PointLight(0xffffee,0.8,8);
-        pointLight.position.set(0,4,1);
-        pointLight.castShadow = true ;
-        scene.add(pointLight);
-        const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.1); // (แสง, ขนาดของ helper)
-        scene.add(pointLightHelper);
-
-
-
-        // ✅ โหลด texture
-        const texFloor = new THREE.TextureLoader().load(
-    'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/rocky_terrain_02_diff_1k.jpg',
-    t => {
-        t.wrapS = THREE.RepeatWrapping;
-        t.wrapT = THREE.RepeatWrapping;
-        t.repeat.set(3, 3); // ตั้งจำนวนการซ้ำ (ถ้าต้องการ)
-    }
+// บ้านดอกไม้
+new THREE.GLTFLoader().load(
+  'https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/house.glb',
+  function (gltf) {
+    const model = gltf.scene;
+    model.position.set(-2.5, 0.0, 3.0);
+    model.scale.set(0.5,0.5,0.5);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'house');
+  }
 );
 
-// ✅ สร้าง material จาก texture
-        const matFloor = new THREE.MeshStandardMaterial({
-            map: texFloor
+// BubbleIsland
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/bubble_island.glb', gltf=>{
+    bubbleIsland=gltf.scene;
+    bubbleIsland.position.set(10,-3.5,-1);
+    bubbleIsland.scale.set(0.1,0.1,0.1);
+    addObj(bubbleIsland,bubbleIsland.position.clone(),'bubbleisland');
+    bubbleIsland.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
 });
 
-// ✅ พื้น
-        const planeGeometry = new THREE.PlaneGeometry(10, 10);
-        const plane = new THREE.Mesh(planeGeometry, matFloor); // ✅ ใช้ matFloor แทน planeMaterial
-        plane.rotation.x = -Math.PI / 2;
-        plane.position.y = 0;
-        plane.receiveShadow = true;
-        scene.add(plane);
+// Manta Ray
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/manta_ray_birostris_animated.glb', gltf=>{
+    manta=gltf.scene;
+    manta.position.set(0.5,3.5,-1);
+    manta.scale.set(0.25,0.25,0.25);
+    manta.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    scene.add(manta);
+    mixer = new THREE.AnimationMixer(manta);
+    mixer.clipAction(gltf.animations[0]).play();
+    addObj(manta, manta.position.clone(), 'manta');
+});
 
-        // ✅ render loop
-        function animate(t) {
-            renderer.render(scene, camera);
-            requestAnimationFrame(animate);
-        }
-        animate(0);
+// Tree1
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/platano_tree.glb', gltf=>{
+    tree = gltf.scene;
+    tree.position.set(2,0,-3.5);
+    tree.scale.set(0.005,0.005,0.005);
+    tree.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; leavesMeshes.push(c); } });
+    addObj(tree, tree.position.clone(), 'tree1');
+});
 
-        window.addEventListener('keydown', (event) => {
+// Tree2
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/platano_tree.glb', gltf=>{
+    tree = gltf.scene;
+    tree.position.set(3.0,0,-3.5);
+    tree.scale.set(0.005,0.005,0.005);
+    tree.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; leavesMeshes.push(c); } });
+    addObj(tree, tree.position.clone(), 'tree2');
+});
 
-        });
+// Tree3
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/platano_tree.glb', gltf=>{
+    tree = gltf.scene;
+    tree.position.set(4.0,0,-3.5);
+    tree.scale.set(0.005,0.005,0.005);
+    tree.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; leavesMeshes.push(c); } });
+    addObj(tree, tree.position.clone(), 'tree3');
+});
 
-        const exrLoader = new THREE.EXRLoader();
-exrLoader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/citrus_orchard_road_puresky_1k.exr',
-  function (texture) {
-    texture.mapping = THREE.EquirectangularReflectionMapping;
+// Me
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/name__1.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(2.4,0.0,2.0);
+    model.scale.set(0.5,0.5,0.5);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'me');
+});
 
-    // ใช้เป็นพื้นหลัง (Background)
-    scene.background = texture;
+// Chair
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/chair.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,3.0);
+    model.scale.set(0.75,0.75,0.75);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'chair');
+});
 
-    // ใช้เป็นแสง Environment ให้โมเดลสะท้อน
-    scene.environment = texture;
+// Chair2
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/chair2.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(2.0,0.0,3.0);
+    model.scale.set(0.5,0.5,0.5);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'chair2');
+});
 
-    console.log('✅ Environment EXR Loaded');
-  },
-  undefined,
-  function (error) {
-    console.error('❌ Error loading EXR:', error);
-  }
-);
-        //เก้าอี้
-        const textureLoader = new THREE.TextureLoader();
-        const chirTexture = textureLoader.load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/Wood.144_baseColor.jpeg');
+// Tree_pink
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/tree_pink.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(-2.5,0,0.0,0.0);
+    model.scale.set(0.5,0.5,0.5);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'treepink');
+});
 
-        const loader = new THREE.OBJLoader();
-    loader.load(
-    'https://raw.githubusercontent.com/Chiratha/ALL_Model/refs/heads/main/chir.obj',
-    function(object) {
-        object.scale.set(0.5, 0.5, 0.5);
+// Flower_white
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/flower_white.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'flowerwhite');
+});
 
-        object.traverse(function(child) {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
+// Cat
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/cat.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(2.0,0.0,3.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'cat');
+});
 
-                // ใช้ texture เดียวสำหรับทุก mesh
-                if (!child.material.map) {
-                    child.material = new THREE.MeshStandardMaterial({
-                        map: chirTexture
-                    });
-                }
-            }
-        });
+// fountain
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/Fountain.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(-2.5,0.0,-2.5);
+    model.scale.set(0.5,0.5,0.5);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'fountain');
+});
 
-        object.position.set(0, 0, 0);
-        scene.add(object);
-    },
-    undefined,
-    function(error) {
-        console.error('Error loading OBJ:', error);
+// sign
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/sign2.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'sign');
+});
+
+// bicycle
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/bicycle.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'bicycle');
+});
+
+// dog
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/dog.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'dog');
+});
+
+
+
+// --- Camera Views ---
+const VIEWS = { 
+    house: { pos:new THREE.Vector3(-2.5, 3, 6), tar:new THREE.Vector3(-2, 0, 3) },
+    bubbleisland: { pos:new THREE.Vector3(5 ,5,3), tar:new THREE.Vector3(10,-3.5,-3)},
+    tree1: { pos:new THREE.Vector3(4,3,0), tar:new THREE.Vector3(2,0,-3.5)},
+    tree2: { pos:new THREE.Vector3(5,3,0), tar:new THREE.Vector3(2.5,0,-3.5)},
+    tree3: { pos:new THREE.Vector3(6,3,0), tar:new THREE.Vector3(3.0,0,-3.5)},
+    manta: { pos:new THREE.Vector3(0,5,5), tar:new THREE.Vector3(0,3.5,-1)},
+    me: { pos:new THREE.Vector3(3.0, 1.0, 7.0), tar:new THREE.Vector3(4.0, -1.0, 4.0)},
+    chair: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(-2.0, 0.0, 3.0)},
+    flowerwhite: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(0.0, 0.0, 3.0)},
+    chair2: { pos:new THREE.Vector3(2.0, 2.0, 6.0), tar:new THREE.Vector3(4.0, 0.0, 3.0)},
+    cat: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(5.0, 0.0, -3.0)},
+    fountain: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(6.0, 0.0, -3.0)},
+    treepink: { pos:new THREE.Vector3(2.0, 2.0, 6.0), tar:new THREE.Vector3(-2.0, 0.0, 3.0)},
+    sign: { pos:new THREE.Vector3(-2.5, 3, 6), tar:new THREE.Vector3(-2, 0, -2.5) }  ,
+    bicycle: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(0.0, 0.0, 3.0) },
+    dog: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(0.0, 0.0, 3.0) } 
+};
+
+let pickedObjPosition = new THREE.Vector3(), cameraTargetPosition = camera.position.clone();
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+function setPointer(e){
+    const r = renderer.domElement.getBoundingClientRect();
+    const x = (e.clientX ?? e.touches[0].clientX) - r.left;
+    const y = (e.clientY ?? e.touches[0].clientY) - r.top;
+    pointer.x = (x / r.width) * 2 - 1;
+    pointer.y = -(y / r.height) * 2 + 1;
+}
+
+function onPick(e){
+    setPointer(e);
+    raycaster.setFromCamera(pointer,camera);
+    const hits = raycaster.intersectObjects(clickable,true);
+    if(!hits.length) return;
+    let obj = hits[0].object;
+    while(obj && (!obj.name || !VIEWS[obj.name])) obj = obj.parent;
+    if(!obj) return;
+    cameraTargetPosition.copy(VIEWS[obj.name].pos);
+    pickedObjPosition.copy(VIEWS[obj.name].tar);
+}
+renderer.domElement.addEventListener('click',onPick);
+renderer.domElement.addEventListener('touchend',onPick,{passive:true});
+
+// --- Back Button ---
+const initialCamPos = camera.position.clone();
+const initialCamTar = new THREE.Vector3(0,1.2,0);
+document.getElementById('backBtn').addEventListener('click', ()=>{
+    cameraTargetPosition.copy(initialCamPos);
+    pickedObjPosition.copy(initialCamTar);
+});
+
+// --- Animate Loop ---
+function animate(){
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+    const elapsed = clock.getElapsedTime();
+    if(mixer) mixer.update(delta);
+
+    // Manta Ray swimming
+    if(manta){
+        manta.position.x += mantaSpeed*mantaDirection;
+        if(manta.position.x>2 || manta.position.x<-2) mantaDirection*=-1;
+        manta.position.y = 3.5 + mantaAmplitude * Math.sin(elapsed*mantaFrequency*Math.PI*0.5);
     }
-);
-    //ตู้โทรศัพท์
-    // ✅ โหลด texture ของตู้โทรศัพท์
-const phoneTexture = new THREE.TextureLoader().load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/Red_Part_baseColor.jpeg'
-);
 
-// ✅ โหลดโมเดลตู้โทรศัพท์
-const phoneLoader = new THREE.OBJLoader();
-phoneLoader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/refs/heads/main/phone.obj',
-  function (object) {
-    object.scale.set(0.5, 0.5, 0.5);
+    // Leaves sway
+    leavesMeshes.forEach((leaf,i)=>{ leaf.rotation.z = 0.05 * Math.sin(elapsed*2 + i); });
 
-    object.traverse(function (child) {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+    // Camera follow
+    camera.position.lerp(cameraTargetPosition,0.05);
+    controls.target.lerp(pickedObjPosition,0.05);
+    controls.update();
 
-        // ✅ ใส่ texture สีแดง
-        child.material = new THREE.MeshStandardMaterial({
-          map: phoneTexture
-        });
-      }
-    });
+    renderer.render(scene,camera);
+}
+animate();
 
-    object.position.set(3, 1.0, -2.2);
-    scene.add(object);
-  },
-  undefined,
-  function (error) {
-    console.error('Error loading phone OBJ:', error);
-  }
-);
-
-  const teaShopLoader = new THREE.GLTFLoader();
-teaShopLoader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/japanese_tea_shop.glb',
-  function (gltf) {
-    const model = gltf.scene;
-    model.position.set(-2, 0.4, -2.5);// ✅ ปรับตำแหน่งเริ่มต้น
-    model.scale.set(1, 1, 1);
-
-    // ✅ ให้รับแสงและเงา
-    model.traverse(function (child) {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-    scene.add(model);
-  },
-  undefined,
-  function (error) {
-    console.error('Error loading GLB:', error);
-  }
-);
-
-  const treeLoader = new THREE.GLTFLoader();
-treeLoader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/platano_tree.glb',
-  function (gltf) {
-    const model = gltf.scene;
-    model.position.set(2, 0, -3.5);
-    model.scale.set(0.005, 0.005, 0.005);
-    model.traverse(function (child) {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-
-    scene.add(model);
-  },
-  undefined,
-  function (error) {
-    console.error('Error loading GLB:', error);
-  }
-);
-
-    // ป้ายถนน
-  const signLoader = new THREE.GLTFLoader();
-signLoader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/pavement_sign_a_board.glb',
-  function (gltf) {
-    const model = gltf.scene;
-    
-    // ✅ ปรับตำแหน่ง (แก้ไขได้ตามต้องการ)
-    model.position.set(0.5, 0.1, -1.0);
-
-    // ✅ ปรับขนาด (ถ้าใหญ่หรือเล็กไปแก้ค่าได้)
-    model.scale.set(0.25, 0.25, 0.25);
-
-    // ✅ เปิดรับแสงและเงา
-    model.traverse(function (child) {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-
-    // ✅ เพิ่มเข้า scene
-    scene.add(model);
-  },
-  undefined,
-  function (error) {
-    console.error('Error loading GLB:', error);
-  }
-);
-
-  // รูปฉันเองจ้าา
-  const MeLoader = new THREE.GLTFLoader();
-MeLoader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/name__1.glb',
-  function (gltf) {
-    const model = gltf.scene;
-    
-    model.position.set(2.4, 0.0, 2.0);
-    model.scale.set(0.5, 0.5, 0.5);
-
-    model.traverse(function (child) {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-
-        if (child.material.map) {
-          child.material.map.anisotropy = 16;
-          child.material.map.minFilter = THREE.LinearMipmapLinearFilter;
-          child.material.map.magFilter = THREE.LinearFilter;
-        }
-      }
-    });
-
-    scene.add(model);
-  },
-  undefined,
-  function (error) {
-    console.error('Error loading GLB:', error);
-  }
-);
-
-    // ตรางมหาวิทยาลัย
-    const ku_Loader = new THREE.GLTFLoader();
-ku_Loader.load(
-  'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/KU_1.glb',
-  function (gltf) {
-    const model = gltf.scene;
-    
-    // ✅ ปรับตำแหน่ง (แก้ไขได้ตามต้องการ)
-    model.position.set(0.5, 0.1, -1.0);
-
-    // ✅ ปรับขนาด (ถ้าใหญ่หรือเล็กไปแก้ค่าได้)
-    model.scale.set(0.25, 0.25, 0.25);
-
-    // ✅ เปิดรับแสงและเงา
-    model.traverse(function (child) {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-
-    // ✅ เพิ่มเข้า scene
-    scene.add(model);
-  },
-  undefined,
-  function (error) {
-    console.error('Error loading GLB:', error);
-  }
-);
-
-    
-    
-
-    </script>
+// --- Resize ---
+window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
 </body>
-
 </html>
