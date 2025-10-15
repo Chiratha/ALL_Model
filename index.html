@@ -4,100 +4,150 @@
     <title>Interactive 3D Scene</title>
     <style>
         body { margin: 0; overflow: hidden; }
-        #backBtn {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 100;
-            padding: 10px;
-            font-size: 16px;
+
+        /* ปุ่มน่ารัก */
+        .cuteBtn, #nextBtn {
+            border: none;
             cursor: pointer;
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            color: white;
+            transition: transform 0.2s, background 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
+
+        /* ปุ่ม About me / Credit */
+        .cuteBtn {
+            background: #ffb6c1;
+            padding: 10px 18px;
+            border-radius: 20px;
+            font-size: 16px;
+        }
+        .cuteBtn:hover { transform: scale(1.1); background: #ff69b4; }
+        .cuteBtn:active { transform: scale(0.95); }
+
+        /* ปุ่ม Next ขวาล่าง */
+        #nextBtn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #ffb6c1;
+            font-size: 28px;
+        }
+        #nextBtn:hover { transform: scale(1.2); background: #ff69b4; }
+        #nextBtn:active { transform: scale(1); }
     </style>
 </head>
 <body>
-<button id="backBtn">Back</button>
+
+<!-- ปุ่มด้านซ้ายบน -->
+<div id="btnBar" style="position: fixed; top: 20px; left: 20px; z-index: 100; display: flex; gap: 12px;">
+    <button class="cuteBtn" id="aboutBtn">About me</button>
+    <button class="cuteBtn" id="creditBtn">Credit</button>
+</div>
+
+<!-- ปุ่ม Next ขวาล่าง -->
+<button id="nextBtn">&gt;</button>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
 
 <script>
-// --- Scene & Renderer ---
-const scene = new THREE.Scene();
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-document.body.appendChild(renderer.domElement);
+    // --- Next Button Hover & Click ---
+    const nextBtn = document.getElementById('nextBtn');
+    nextBtn.addEventListener('mouseenter', ()=> nextBtn.style.transform = 'scale(1.2)');
+    nextBtn.addEventListener('mouseleave', ()=> nextBtn.style.transform = 'scale(1)');
+    nextBtn.addEventListener('mousedown', ()=> nextBtn.style.background = '#ff69b4');
+    nextBtn.addEventListener('mouseup', ()=> nextBtn.style.background = '#ffb6c1');
 
-// --- Camera & Controls ---
-const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.5, 1000);
-camera.position.set(0,5,10);
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    // --- Credit Button ---
+    document.getElementById('creditBtn').addEventListener('click', ()=>{
+        const idx = viewKeys.indexOf('credits');
+        if(idx !== -1){
+            currentViewIdx = idx;
+            cameraTargetPosition.copy(VIEWS.credits.pos);
+            pickedObjPosition.copy(VIEWS.credits.tar);
+        }
+    });
 
-// --- Lights ---
-scene.add(new THREE.AmbientLight(0x504540));
-const pointLight = new THREE.PointLight(0xffffee,0.8,8);
-pointLight.position.set(0,4,1);
-pointLight.castShadow = true;
-scene.add(pointLight);
-scene.add(new THREE.PointLightHelper(pointLight,0.1));
+    // --- Scene & Renderer ---
+    const scene = new THREE.Scene();
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
 
-// --- Sunlight ---
-function updateSunlight(){
-    const hour = new Date().getHours();
-    let color,intensity,pos;
-    if(hour>=5 && hour<8){ color=0xffc58f; intensity=0.6; pos=new THREE.Vector3(5,2,5);}
-    else if(hour>=8 && hour<16){ color=0xffffff; intensity=1; pos=new THREE.Vector3(10,8,10);}
-    else if(hour>=16 && hour<19){ color=0xff9e6b; intensity=0.6; pos=new THREE.Vector3(-5,3,-5);}
-    else{ color=0x4a6fa5; intensity=0.2; pos=new THREE.Vector3(0,1,0);}
-    if(scene.userData.sunLight) scene.remove(scene.userData.sunLight);
-    const sun = new THREE.DirectionalLight(color,intensity);
-    sun.position.copy(pos);
-    sun.castShadow = true;
-    scene.add(sun);
-    scene.userData.sunLight = sun;
-}
-updateSunlight();
-setInterval(updateSunlight,300000);
+    // --- Camera & Controls ---
+    const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.5, 1000);
+    camera.position.set(7,5,8);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-// --- Floor ---
-const texFloor = new THREE.TextureLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/rocky_terrain_02_diff_1k.jpg', t=>{
-    t.wrapS=t.wrapT=THREE.RepeatWrapping;
-    t.repeat.set(3,3);
-});
-const plane = new THREE.Mesh(new THREE.PlaneGeometry(10,10), new THREE.MeshStandardMaterial({map:texFloor}));
-plane.rotation.x = -Math.PI/2;
-plane.receiveShadow = true;
-scene.add(plane);
+    // --- Lights ---
+    scene.add(new THREE.AmbientLight(0x504540));
+    const pointLight = new THREE.PointLight(0xffffee,0.8,8);
+    pointLight.position.set(0,4,1);
+    pointLight.castShadow = true;
+    scene.add(pointLight);
+    scene.add(new THREE.PointLightHelper(pointLight,0.1));
 
-// --- Sky ---
-new THREE.EXRLoader().load(
-    'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/citrus_orchard_road_puresky_1k.exr',
-    function(texture){ 
-        texture.mapping=THREE.EquirectangularReflectionMapping; 
-        scene.background=texture; 
-        scene.environment=texture; 
+    // --- Sunlight ---
+    function updateSunlight(){
+        const hour = new Date().getHours();
+        let color,intensity,pos;
+        if(hour>=5 && hour<8){ color=0xffc58f; intensity=0.6; pos=new THREE.Vector3(5,2,5);}
+        else if(hour>=8 && hour<16){ color=0xffffff; intensity=1; pos=new THREE.Vector3(10,8,10);}
+        else if(hour>=16 && hour<19){ color=0xff9e6b; intensity=0.6; pos=new THREE.Vector3(-5,3,-5);}
+        else{ color=0x4a6fa5; intensity=0.2; pos=new THREE.Vector3(0,1,0);}
+        if(scene.userData.sunLight) scene.remove(scene.userData.sunLight);
+        const sun = new THREE.DirectionalLight(color,intensity);
+        sun.position.copy(pos);
+        sun.castShadow = true;
+        scene.add(sun);
+        scene.userData.sunLight = sun;
     }
-);
+    updateSunlight();
+    setInterval(updateSunlight,300000);
 
-// --- Global ---
-const clock = new THREE.Clock();
-let bubbleIsland, manta, whale, tree, mixer;
-let leavesMeshes = [];
-let mantaDirection = 1;
-const mantaSpeed = 0.02, mantaRange=[-2,2], mantaAmplitude=0.5, mantaFrequency=1.0;
+    // --- Floor ---
+    const texFloor = new THREE.TextureLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/rocky_terrain_02_diff_1k.jpg', t=>{
+        t.wrapS=t.wrapT=THREE.RepeatWrapping;
+        t.repeat.set(3,3);
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(10,10), new THREE.MeshStandardMaterial({map:texFloor}));
+    plane.rotation.x = -Math.PI/2;
+    plane.receiveShadow = true;
+    scene.add(plane);
 
-// --- Clickable Objects ---
-const clickable = [];
-function addObj(mesh,pos,name){
-    mesh.position.copy(pos);
-    mesh.name=name;
-    scene.add(mesh);
-    clickable.push(mesh);
-    return mesh;
-}
+    // --- Sky ---
+    new THREE.EXRLoader().load(
+        'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/citrus_orchard_road_puresky_1k.exr',
+        function(texture){ 
+            texture.mapping=THREE.EquirectangularReflectionMapping; 
+            scene.background=texture; 
+            scene.environment=texture; 
+        }
+    );
+
+    // --- Global Variables ---
+    const clock = new THREE.Clock();
+    let bubbleIsland, manta, whale, tree, mixer;
+    let leavesMeshes = [];
+    let mantaDirection = 1;
+
+    const clickable = [];
+    function addObj(mesh,pos,name){
+        mesh.position.copy(pos);
+        mesh.name=name;
+        scene.add(mesh);
+        clickable.push(mesh);
+        return mesh;
+    }
 
 // --- Load Models ---
 
@@ -113,12 +163,12 @@ new THREE.GLTFLoader().load(
   }
 );
 
-// BubbleIsland
-new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/bubble_island.glb', gltf=>{
+// Bridge
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/bridge.glb', gltf=>{
     bubbleIsland=gltf.scene;
-    bubbleIsland.position.set(10,-3.5,-1);
-    bubbleIsland.scale.set(0.1,0.1,0.1);
-    addObj(bubbleIsland,bubbleIsland.position.clone(),'bubbleisland');
+    bubbleIsland.position.set(0.0,0.0,0.0);
+    bubbleIsland.scale.set(1.0,1.0,1.0);
+    addObj(bubbleIsland,bubbleIsland.position.clone(),'bridge');
     bubbleIsland.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
 });
 
@@ -251,77 +301,242 @@ new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Mode
     addObj(model, model.position.clone(), 'dog');
 });
 
+// floor
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/floor.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'floor');
+});
+
+// table
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/table.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'table');
+});
+
+// car
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/car.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'car');
+});
+
+// Playground
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/Playground.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(0.0,0.0,0.0);
+    model.scale.set(1.0,1.0,1.0);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'Playground');
+});
+
+// crediits
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/credit.glb', gltf=>{
+    const model=gltf.scene;
+    model.position.set(-7.0,0.0,-3.0);
+    model.scale.set(0.45,0.45,0.45);
+    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
+    addObj(model, model.position.clone(), 'credits');
+});
+let envMap;
+new THREE.EXRLoader().load(
+    'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/citrus_orchard_road_puresky_1k.exr',
+    function(texture){
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.background = texture;
+        scene.environment = texture;
+        envMap = texture; // <-- assign ให้ envMap ใช้ได้
+    }
+);
+
+// Geometry + PBR Material
+  const geo = new THREE.SphereBufferGeometry(0.65, 16, 16); // ทรงกลมทำให้เห็น reflection ชัด
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,  // สีฐาน
+    metalness: 0.9,  // 0 = non-metal, 1 = metal
+    roughness:  0.1,  // 0 = เรียบเงา, 1 = ด้าน
+    envMap: envMap, // ใส่ที่วัสดุเพื่อใช้ envMapIntensity
+    envMapIntensity:  1.0 // ความเข้มของแสงสะท้อนจาก env map
+  });
+  const ball = new THREE.Mesh(geo, mat);
+  ball.castShadow = true;
+  ball.position.set(18.0,0.0,4.0);
+  scene.add(ball);
+
 
 
 // --- Camera Views ---
 const VIEWS = { 
-    house: { pos:new THREE.Vector3(-2.5, 3, 6), tar:new THREE.Vector3(-2, 0, 3) },
-    bubbleisland: { pos:new THREE.Vector3(5 ,5,3), tar:new THREE.Vector3(10,-3.5,-3)},
+    house: { pos:new THREE.Vector3(-1.5, 3, 6), tar:new THREE.Vector3(-2, 0, 3) },
     tree1: { pos:new THREE.Vector3(4,3,0), tar:new THREE.Vector3(2,0,-3.5)},
     tree2: { pos:new THREE.Vector3(5,3,0), tar:new THREE.Vector3(2.5,0,-3.5)},
     tree3: { pos:new THREE.Vector3(6,3,0), tar:new THREE.Vector3(3.0,0,-3.5)},
     manta: { pos:new THREE.Vector3(0,5,5), tar:new THREE.Vector3(0,3.5,-1)},
-    me: { pos:new THREE.Vector3(3.0, 1.0, 7.0), tar:new THREE.Vector3(4.0, -1.0, 4.0)},
     chair: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(-2.0, 0.0, 3.0)},
-    flowerwhite: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(0.0, 0.0, 3.0)},
     chair2: { pos:new THREE.Vector3(2.0, 2.0, 6.0), tar:new THREE.Vector3(4.0, 0.0, 3.0)},
-    cat: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(5.0, 0.0, -3.0)},
-    fountain: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(6.0, 0.0, -3.0)},
+    cat: { pos:new THREE.Vector3(0.0, 2.0, 3.0), tar:new THREE.Vector3(7.0, 0.0, -3.0)},
     treepink: { pos:new THREE.Vector3(2.0, 2.0, 6.0), tar:new THREE.Vector3(-2.0, 0.0, 3.0)},
-    sign: { pos:new THREE.Vector3(-2.5, 3, 6), tar:new THREE.Vector3(-2, 0, -2.5) }  ,
-    bicycle: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(0.0, 0.0, 3.0) },
-    dog: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(0.0, 0.0, 3.0) } 
+    sign: { pos:new THREE.Vector3(2.5, 2, 0.5), tar:new THREE.Vector3(-2, 0, -2.5) },
+    bridge: { pos:new THREE.Vector3(5 ,5,3), tar:new THREE.Vector3(10,-3.5,-3)},
+    table: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(10.0, 2.0, 3.0) },
+    car: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(13.0, 0.0, -5.0) },
+    Playground: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(16.0, 2.0, 3.0) },
+    me: { pos:new THREE.Vector3(3.0, 1.0, 7.0), tar:new THREE.Vector3(4.0, -1.0, 4.0)},
+    credits: { pos:new THREE.Vector3(-7.0, 3.0, 3.0), tar:new THREE.Vector3(-7.0, 0.0, -2.0) }
 };
 
-let pickedObjPosition = new THREE.Vector3(), cameraTargetPosition = camera.position.clone();
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
+    const viewKeys = Object.keys(VIEWS);
+    let currentViewIdx = -1;
+    let pickedObjPosition = new THREE.Vector3(), cameraTargetPosition = camera.position.clone();
 
-function setPointer(e){
-    const r = renderer.domElement.getBoundingClientRect();
-    const x = (e.clientX ?? e.touches[0].clientX) - r.left;
-    const y = (e.clientY ?? e.touches[0].clientY) - r.top;
-    pointer.x = (x / r.width) * 2 - 1;
-    pointer.y = -(y / r.height) * 2 + 1;
-}
+    // --- About Me Button ---
+    document.getElementById('aboutBtn').addEventListener('click', ()=>{
+        const idx = viewKeys.indexOf('me');
+        if(idx !== -1){
+            currentViewIdx = idx;
+            cameraTargetPosition.copy(VIEWS.me.pos);
+            pickedObjPosition.copy(VIEWS.me.tar);
+        }
+    });
 
-function onPick(e){
-    setPointer(e);
-    raycaster.setFromCamera(pointer,camera);
-    const hits = raycaster.intersectObjects(clickable,true);
-    if(!hits.length) return;
-    let obj = hits[0].object;
-    while(obj && (!obj.name || !VIEWS[obj.name])) obj = obj.parent;
-    if(!obj) return;
-    cameraTargetPosition.copy(VIEWS[obj.name].pos);
-    pickedObjPosition.copy(VIEWS[obj.name].tar);
-}
-renderer.domElement.addEventListener('click',onPick);
-renderer.domElement.addEventListener('touchend',onPick,{passive:true});
+    // --- Next Button ---
+    document.getElementById('nextBtn').addEventListener('click', ()=>{
+        if(currentViewIdx === -1){ currentViewIdx = 0; }
+        else{ currentViewIdx = (currentViewIdx + 1) % viewKeys.length; }
+        const key = viewKeys[currentViewIdx];
+        cameraTargetPosition.copy(VIEWS[key].pos);
+        pickedObjPosition.copy(VIEWS[key].tar);
+    });
 
-// --- Back Button ---
-const initialCamPos = camera.position.clone();
-const initialCamTar = new THREE.Vector3(0,1.2,0);
-document.getElementById('backBtn').addEventListener('click', ()=>{
-    cameraTargetPosition.copy(initialCamPos);
-    pickedObjPosition.copy(initialCamTar);
-});
+    // --- Pick Objects ---
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
 
-// --- Animate Loop ---
+    function setPointer(e){
+        const r = renderer.domElement.getBoundingClientRect();
+        const x = (e.clientX ?? e.touches[0].clientX) - r.left;
+        const y = (e.clientY ?? e.touches[0].clientY) - r.top;
+        pointer.x = (x / r.width) * 2 - 1;
+        pointer.y = -(y / r.height) * 2 + 1;
+    }
+
+    function onPick(e){
+        setPointer(e);
+        raycaster.setFromCamera(pointer,camera);
+        const hits = raycaster.intersectObjects(clickable,true);
+        if(!hits.length) return;
+        let obj = hits[0].object;
+        while(obj && (!obj.name || !VIEWS[obj.name])) obj = obj.parent;
+        if(!obj) return;
+        cameraTargetPosition.copy(VIEWS[obj.name].pos);
+        pickedObjPosition.copy(VIEWS[obj.name].tar);
+    }
+    renderer.domElement.addEventListener('click',onPick);
+    renderer.domElement.addEventListener('touchend',onPick,{passive:true});
+
+    // --- EXR Loader + Shader Sphere ---
+new THREE.EXRLoader().load(
+    'https://raw.githubusercontent.com/Chiratha/ALL_Model/main/citrus_orchard_road_puresky_1k.exr',
+    function(texture){
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.background = texture;
+        scene.environment = texture;
+        envMap = texture;
+
+        // Shader Sphere
+        const uniforms = {
+            uTime: { value: 0.0 },
+            uLightDir: { value: new THREE.Vector3(0.4,1.0,0.8).normalize() },
+            uTex: { value: new THREE.TextureLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/scuba_suede_diff_1k.jpg') },
+            uEnvMap: { value: envMap }
+        };
+        const vert = `
+            uniform float uTime;
+            varying vec3 vNormal;
+            varying vec3 vPosW;
+            varying vec2 vUv;
+            void main(){
+                vNormal = normalize(mat3(modelMatrix)*normal);
+                vec3 pos = position;
+                vUv = uv;
+                vPosW = (modelMatrix*vec4(pos,1.0)).xyz;
+                gl_Position = projectionMatrix*modelViewMatrix*vec4(pos,1.0);
+            }
+        `;
+        const frag = `
+            precision mediump float;
+            varying vec3 vNormal;
+            varying vec3 vPosW;
+            varying vec2 vUv;
+            uniform vec3 uLightDir;
+            uniform sampler2D uTex;
+            uniform samplerCube uEnvMap;
+            void main(){
+                float diffuse = clamp(dot(vNormal,uLightDir),0.0,1.0);
+                float levels = 3.0;
+                diffuse = floor(diffuse*levels)/levels + 0.6;
+
+                vec3 R = reflect(-uLightDir, vNormal);
+                vec3 V = normalize(cameraPosition - vPosW);
+                float specular = max(pow(dot(R,V),4.0),0.0);
+                specular = smoothstep(0.45,0.55,specular);
+                specular = clamp(specular,0.0,0.6);
+                if(diffuse <= 0.6) specular=0.0;
+
+                vec3 base = texture2D(uTex,vUv).rgb;
+                vec3 color = (base*diffuse) + vec3(specular);
+                gl_FragColor = vec4(color,1.0);
+            }
+        `;
+        const geo = new THREE.SphereBufferGeometry(0.65,16,16);
+        const mat2 = new THREE.ShaderMaterial({vertexShader:vert, fragmentShader:frag, uniforms});
+        const shaderSphere = new THREE.Mesh(geo, mat2);
+        shaderSphere.position.set(13,1.5,0);
+        scene.add(shaderSphere);
+
+        function animateShader(){
+            uniforms.uTime.value = performance.now()/1000;
+            uniforms.uLightDir.value.set(Math.sin(uniforms.uTime.value)*2.0,1.0,0.8).normalize();
+            requestAnimationFrame(animateShader);
+        }
+        animateShader();
+    }
+);
+    // --- Animate Loop ---
+const mantaSpeed = 0.02;
+const mantaRangeX = [-2, 2];
+const mantaRangeZ = [-2, 2];
+let mantaDirectionX = 1;
+let mantaDirectionZ = 1;
+
 function animate(){
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
     const elapsed = clock.getElapsedTime();
     if(mixer) mixer.update(delta);
 
-    // Manta Ray swimming
+    // Manta Ray movement
     if(manta){
-        manta.position.x += mantaSpeed*mantaDirection;
-        if(manta.position.x>2 || manta.position.x<-2) mantaDirection*=-1;
-        manta.position.y = 3.5 + mantaAmplitude * Math.sin(elapsed*mantaFrequency*Math.PI*0.5);
+        // ขยับ x
+        manta.position.x += mantaSpeed * mantaDirectionX;
+        if(manta.position.x > mantaRangeX[1] || manta.position.x < mantaRangeX[0]) mantaDirectionX *= -1;
+        
+        // ขยับ z
+        manta.position.z += mantaSpeed * mantaDirectionZ;
+        if(manta.position.z > mantaRangeZ[1] || manta.position.z < mantaRangeZ[0]) mantaDirectionZ *= -1;
+
+        // optional: หมุนเบาๆ ให้ดูสมจริง
+        manta.rotation.y = Math.sin(elapsed) * 0.2;
     }
 
-    // Leaves sway
+    // Leaves rotation
     leavesMeshes.forEach((leaf,i)=>{ leaf.rotation.z = 0.05 * Math.sin(elapsed*2 + i); });
 
     // Camera follow
@@ -329,16 +544,23 @@ function animate(){
     controls.target.lerp(pickedObjPosition,0.05);
     controls.update();
 
+     // --- Camera follow manta ถ้าเลือก ---
+    camera.position.lerp(cameraTargetPosition, 0.02);
+    controls.target.lerp(pickedObjPosition, 0.02);
+    controls.update();
+
     renderer.render(scene,camera);
 }
 animate();
 
-// --- Resize ---
-window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    window.addEventListener('resize', ()=>{
+        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+
+
 </script>
 </body>
 </html>
