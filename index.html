@@ -367,11 +367,77 @@ new THREE.EXRLoader().load(
   });
   const ball = new THREE.Mesh(geo, mat);
   ball.castShadow = true;
-  ball.position.set(18.0,0.0,4.0);
+  ball.position.set(16.8,1.5,0.0);
   scene.add(ball);
 
 
 
+// ---- Shader Plane (World Elevation) ----
+const uniformsShaderPlane = {
+    uTime: { value: 0.0 },
+    uHeight: { value: null }
+};
+const vertShaderPlane = `
+    uniform sampler2D uHeight;
+    uniform float uTime;
+    varying float vH;
+    void main(){
+        vec3 pos = position;
+        float h = texture2D(uHeight, uv).r;
+        pos.z = pos.z + (h * 0.8);
+        vH = h;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+    }
+`;
+const fragShaderPlane = `
+    precision mediump float;
+    varying float vH;
+    void main(){
+        vec3 startColor = vec3(1.0, 0.5, 0.0);
+        vec3 endColor   = vec3(0.0, 0.0, 1.0);
+        vec3 color = mix(startColor, endColor, vH);
+        gl_FragColor = vec4(color, 1.0);
+    }
+`;
+
+let shaderPlaneMesh;
+new THREE.TextureLoader().load(
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/World_elevation_map.png/1200px-World_elevation_map.png?20230728143301',
+    (tex) => {
+        uniformsShaderPlane.uHeight.value = tex;
+        const geo = new THREE.PlaneBufferGeometry(4, 2, 200, 200);
+        const mat = new THREE.ShaderMaterial({
+            vertexShader: vertShaderPlane,
+            fragmentShader: fragShaderPlane,
+            uniforms: uniformsShaderPlane,
+            side: THREE.DoubleSide
+        });
+        shaderPlaneMesh = new THREE.Mesh(geo, mat);
+        shaderPlaneMesh.scale.set(0.5, 0.5, 0.5);
+        shaderPlaneMesh.position.set(12.5, 1.5, -3.4);
+        scene.add(shaderPlaneMesh);
+    }
+);
+
+// ขยับ mesh elevation map ด้วยปุ่มลูกศร
+window.addEventListener('keydown', (e) => {
+    if (!shaderPlaneMesh) return;
+    const step = 0.2;
+    switch (e.key) {
+        case 'ArrowUp':
+            shaderPlaneMesh.position.y += step;
+            break;
+        case 'ArrowDown':
+            shaderPlaneMesh.position.y -= step;
+            break;
+        case 'ArrowLeft':
+            shaderPlaneMesh.position.x -= step;
+            break;
+        case 'ArrowRight':
+            shaderPlaneMesh.position.x += step;
+            break;
+    }
+});
 // --- Camera Views ---
 const VIEWS = { 
     house: { pos:new THREE.Vector3(-1.5, 3, 6), tar:new THREE.Vector3(-2, 0, 3) },
@@ -389,7 +455,7 @@ const VIEWS = {
     car: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(13.0, 0.0, -5.0) },
     Playground: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(16.0, 2.0, 3.0) },
     me: { pos:new THREE.Vector3(3.0, 1.0, 7.0), tar:new THREE.Vector3(4.0, -1.0, 4.0)},
-    credits: { pos:new THREE.Vector3(-7.0, 3.0, 3.0), tar:new THREE.Vector3(-7.0, 0.0, -2.0) }
+    credits: { pos:new THREE.Vector3(-7.0, 3.0, 3.0), tar:new THREE.Vector3(-7.0, 0.0, -2.0) },
 };
 
     const viewKeys = Object.keys(VIEWS);
