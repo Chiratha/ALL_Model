@@ -51,6 +51,8 @@
 
 <!-- ปุ่ม Next ขวาล่าง -->
 <button id="nextBtn">&gt;</button>
+<!-- ปุ่ม Prev ซ้ายล่าง -->
+<button id="prevBtn">&lt;</button>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -65,7 +67,24 @@
     nextBtn.addEventListener('mousedown', ()=> nextBtn.style.background = '#ff69b4');
     nextBtn.addEventListener('mouseup', ()=> nextBtn.style.background = '#ffb6c1');
 
-    // --- Credit Button ---
+    // --- Prev Button Hover & Click ---
+    const prevBtn = document.getElementById('prevBtn');
+    prevBtn.style.position = 'fixed';
+    prevBtn.style.bottom = '20px';
+    prevBtn.style.left = '20px';
+    prevBtn.style.width = '60px';
+    prevBtn.style.height = '60px';
+    prevBtn.style.borderRadius = '50%';
+    prevBtn.style.background = '#ffb6c1';
+    prevBtn.style.fontSize = '28px';
+    prevBtn.style.cursor = 'pointer';
+    prevBtn.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';
+    prevBtn.addEventListener('mouseenter', ()=> prevBtn.style.transform = 'scale(1.2)');
+    prevBtn.addEventListener('mouseleave', ()=> prevBtn.style.transform = 'scale(1)');
+    prevBtn.addEventListener('mousedown', ()=> prevBtn.style.background = '#ff69b4');
+    prevBtn.addEventListener('mouseup', ()=> prevBtn.style.background = '#ffb6c1');
+
+    // --- Credit Button (goes to 'credits' view) ---
     document.getElementById('creditBtn').addEventListener('click', ()=>{
         const idx = viewKeys.indexOf('credits');
         if(idx !== -1){
@@ -85,7 +104,7 @@
 
     // --- Camera & Controls ---
     const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.5, 1000);
-    camera.position.set(7,5,8);
+    camera.position.set(4, 3, 5);
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
     // --- Lights ---
@@ -211,14 +230,7 @@ new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Mode
     addObj(tree, tree.position.clone(), 'tree3');
 });
 
-// Me
-new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model/main/name__1.glb', gltf=>{
-    const model=gltf.scene;
-    model.position.set(2.4,0.0,2.0);
-    model.scale.set(0.5,0.5,0.5);
-    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
-    addObj(model, model.position.clone(), 'me');
-});
+// 'Me' model removed per request (no loader)
 
 // Chair
 new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/chair.glb', gltf=>{
@@ -275,21 +287,12 @@ new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Mode
 });
 
 // sign
-new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/sign2.glb', gltf=>{
+new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/sign1.glb', gltf=>{
     const model=gltf.scene;
     model.position.set(0.0,0.0,0.0);
     model.scale.set(1.0,1.0,1.0);
     model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
     addObj(model, model.position.clone(), 'sign');
-});
-
-// bicycle
-new THREE.GLTFLoader().load('https://raw.githubusercontent.com/Chiratha/ALL_Model2/main/bicycle.glb', gltf=>{
-    const model=gltf.scene;
-    model.position.set(0.0,0.0,0.0);
-    model.scale.set(1.0,1.0,1.0);
-    model.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.receiveShadow=true; } });
-    addObj(model, model.position.clone(), 'bicycle');
 });
 
 // dog
@@ -472,28 +475,31 @@ const VIEWS = {
     manta: { pos:new THREE.Vector3(0,5,5), tar:new THREE.Vector3(0,3.5,-1)},
     chair: { pos:new THREE.Vector3(0.0, 2.0, 6.0), tar:new THREE.Vector3(-2.0, 0.0, 3.0)},
     chair2: { pos:new THREE.Vector3(2.0, 2.0, 6.0), tar:new THREE.Vector3(4.0, 0.0, 3.0)},
-    cat: { pos:new THREE.Vector3(0.0, 2.0, 3.0), tar:new THREE.Vector3(7.0, 0.0, -3.0)},
+    cat: { pos:new THREE.Vector3(10.0, 2.0, 3.0), tar:new THREE.Vector3(7.0, 0.0, -3.0)},
     treepink: { pos:new THREE.Vector3(2.0, 2.0, 6.0), tar:new THREE.Vector3(-2.0, 0.0, 3.0)},
-    sign: { pos:new THREE.Vector3(2.5, 2, 0.5), tar:new THREE.Vector3(-2, 0, -2.5) },
     bridge: { pos:new THREE.Vector3(5 ,5,3), tar:new THREE.Vector3(10,-3.5,-3)},
     table: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(11.0, 2.0, 1.0) },
-    car: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(13.0, 0.0, -5.0) },
     Playground: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(16.0, 2.0, 3.0) },
-    me: { pos:new THREE.Vector3(3.0, 1.0, 7.0), tar:new THREE.Vector3(4.0, -1.0, 4.0)},
+    sign: { pos:new THREE.Vector3(-4.0, 2, 0.5), tar:new THREE.Vector3(-2, 0, -3.0) },
     credits: { pos:new THREE.Vector3(-7.0, 3.0, 3.0), tar:new THREE.Vector3(-7.0, 0.0, -2.0) },
+
 };
 
     const viewKeys = Object.keys(VIEWS);
     let currentViewIdx = -1;
     let pickedObjPosition = new THREE.Vector3(), cameraTargetPosition = camera.position.clone();
+    // camera follow variables for manta
+    const cameraFollowOffset = new THREE.Vector3(0, 2.0, 5.0); // relative offset from manta when following
+    let cameraFollowTarget = new THREE.Vector3();
+    function lerp(a, b, t){ return a + (b-a) * t; }
 
-    // --- About Me Button ---
+    // --- About Me Button (now goes to 'sign') ---
     document.getElementById('aboutBtn').addEventListener('click', ()=>{
-        const idx = viewKeys.indexOf('me');
+        const idx = viewKeys.indexOf('sign');
         if(idx !== -1){
             currentViewIdx = idx;
-            cameraTargetPosition.copy(VIEWS.me.pos);
-            pickedObjPosition.copy(VIEWS.me.tar);
+            cameraTargetPosition.copy(VIEWS.sign.pos);
+            pickedObjPosition.copy(VIEWS.sign.tar);
         }
     });
 
@@ -501,6 +507,15 @@ const VIEWS = {
     document.getElementById('nextBtn').addEventListener('click', ()=>{
         if(currentViewIdx === -1){ currentViewIdx = 0; }
         else{ currentViewIdx = (currentViewIdx + 1) % viewKeys.length; }
+        const key = viewKeys[currentViewIdx];
+        cameraTargetPosition.copy(VIEWS[key].pos);
+        pickedObjPosition.copy(VIEWS[key].tar);
+    });
+
+    // --- Prev Button (go to previous view) ---
+    document.getElementById('prevBtn').addEventListener('click', ()=>{
+        if(currentViewIdx === -1){ currentViewIdx = viewKeys.length - 1; }
+        else{ currentViewIdx = (currentViewIdx - 1 + viewKeys.length) % viewKeys.length; }
         const key = viewKeys[currentViewIdx];
         cameraTargetPosition.copy(VIEWS[key].pos);
         pickedObjPosition.copy(VIEWS[key].tar);
@@ -586,6 +601,7 @@ new THREE.EXRLoader().load(
                 gl_FragColor = vec4(color,1.0);
             }
         `;
+        
         const geo = new THREE.SphereBufferGeometry(0.65,16,16);
         const mat2 = new THREE.ShaderMaterial({vertexShader:vert, fragmentShader:frag, uniforms});
         const shaderSphere = new THREE.Mesh(geo, mat2);
@@ -630,14 +646,19 @@ function animate(){
     // Leaves rotation
     leavesMeshes.forEach((leaf,i)=>{ leaf.rotation.z = 0.05 * Math.sin(elapsed*2 + i); });
 
-    // Camera follow
-    camera.position.lerp(cameraTargetPosition,0.05);
-    controls.target.lerp(pickedObjPosition,0.05);
-    controls.update();
-
-     // --- Camera follow manta ถ้าเลือก ---
-    camera.position.lerp(cameraTargetPosition, 0.02);
-    controls.target.lerp(pickedObjPosition, 0.02);
+    // Camera follow logic
+    
+    const isFollowingManta = (currentViewIdx !== -1 && viewKeys[currentViewIdx] === 'manta');
+    if(isFollowingManta && manta){
+        
+        cameraFollowTarget.copy(manta.position).add(cameraFollowOffset);
+        camera.position.lerp(cameraFollowTarget, 0.06);
+        controls.target.lerp(manta.position, 0.1);
+    } else {
+    
+        camera.position.lerp(cameraTargetPosition,0.05);
+        controls.target.lerp(pickedObjPosition,0.05);
+    }
     controls.update();
 
     // update shader plane time
