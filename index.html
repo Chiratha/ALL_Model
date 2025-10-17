@@ -375,20 +375,27 @@ new THREE.EXRLoader().load(
 // ---- Shader Plane (World Elevation) ----
 const uniformsShaderPlane = {
     uTime: { value: 0.0 },
-    uHeight: { value: null }
+    uHeight: { value: null },
+    uOffset: { value: new THREE.Vector2(0.0, 0.0) }
 };
+
 const vertShaderPlane = `
     uniform sampler2D uHeight;
     uniform float uTime;
+    uniform vec2 uOffset;
     varying float vH;
     void main(){
         vec3 pos = position;
-        float h = texture2D(uHeight, uv).r;
-        pos.z = pos.z + (h * 0.8);
+        // sample height with uv offset so the map can be panned
+        float h = texture2D(uHeight, uv + uOffset).r;
+        // small wobble plus height displacement
+        pos.z += sin(uTime*2.0 + pos.x*10.0) * 0.05;
+        pos.z += h * 0.8;
         vH = h;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
     }
 `;
+
 const fragShaderPlane = `
     precision mediump float;
     varying float vH;
@@ -414,28 +421,46 @@ new THREE.TextureLoader().load(
         });
         shaderPlaneMesh = new THREE.Mesh(geo, mat);
         shaderPlaneMesh.scale.set(0.5, 0.5, 0.5);
-        shaderPlaneMesh.position.set(12.5, 1.5, -3.4);
+        shaderPlaneMesh.position.set(12.5, 1.0, -3.4);
+        // rotate so uv orientation matches world
+        shaderPlaneMesh.rotation.x = -Math.PI/2;
         scene.add(shaderPlaneMesh);
+
+        // enable pointer drag for panning the height map (updates uOffset)
+        let dragging = false;
+        let lastPointer = new THREE.Vector2();
+        const dom = renderer.domElement;
+
+        dom.addEventListener('pointerdown', (ev) => {
+            dragging = true;
+            lastPointer.set(ev.clientX, ev.clientY);
+            dom.setPointerCapture(ev.pointerId);
+        });
+        dom.addEventListener('pointerup', (ev) => {
+            dragging = false;
+            try { dom.releasePointerCapture(ev.pointerId); } catch(e){}
+        });
+        dom.addEventListener('pointercancel', ()=> dragging = false);
+        dom.addEventListener('pointermove', (ev) => {
+            if(!dragging) return;
+            const dx = (ev.clientX - lastPointer.x) / dom.clientWidth;
+            const dy = (ev.clientY - lastPointer.y) / dom.clientHeight;
+            // flip Y so dragging up moves map up
+            uniformsShaderPlane.uOffset.value.x -= dx * 0.5; // scale factor for sensitivity
+            uniformsShaderPlane.uOffset.value.y += dy * 0.5;
+            lastPointer.set(ev.clientX, ev.clientY);
+        });
     }
 );
 
-// ขยับ mesh elevation map ด้วยปุ่มลูกศร
+// Arrow keys to nudge UV offset
 window.addEventListener('keydown', (e) => {
-    if (!shaderPlaneMesh) return;
-    const step = 0.2;
-    switch (e.key) {
-        case 'ArrowUp':
-            shaderPlaneMesh.position.y += step;
-            break;
-        case 'ArrowDown':
-            shaderPlaneMesh.position.y -= step;
-            break;
-        case 'ArrowLeft':
-            shaderPlaneMesh.position.x -= step;
-            break;
-        case 'ArrowRight':
-            shaderPlaneMesh.position.x += step;
-            break;
+    const nudge = 0.02;
+    switch(e.key){
+        case 'ArrowLeft': uniformsShaderPlane.uOffset.value.x -= nudge; break;
+        case 'ArrowRight': uniformsShaderPlane.uOffset.value.x += nudge; break;
+        case 'ArrowUp': uniformsShaderPlane.uOffset.value.y += nudge; break;
+        case 'ArrowDown': uniformsShaderPlane.uOffset.value.y -= nudge; break;
     }
 });
 // --- Camera Views ---
@@ -451,7 +476,7 @@ const VIEWS = {
     treepink: { pos:new THREE.Vector3(2.0, 2.0, 6.0), tar:new THREE.Vector3(-2.0, 0.0, 3.0)},
     sign: { pos:new THREE.Vector3(2.5, 2, 0.5), tar:new THREE.Vector3(-2, 0, -2.5) },
     bridge: { pos:new THREE.Vector3(5 ,5,3), tar:new THREE.Vector3(10,-3.5,-3)},
-    table: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(10.0, 2.0, 3.0) },
+    table: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(11.0, 2.0, 1.0) },
     car: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(13.0, 0.0, -5.0) },
     Playground: { pos:new THREE.Vector3(10.0, 2.0, 6.0), tar:new THREE.Vector3(16.0, 2.0, 3.0) },
     me: { pos:new THREE.Vector3(3.0, 1.0, 7.0), tar:new THREE.Vector3(4.0, -1.0, 4.0)},
@@ -614,6 +639,11 @@ function animate(){
     camera.position.lerp(cameraTargetPosition, 0.02);
     controls.target.lerp(pickedObjPosition, 0.02);
     controls.update();
+
+    // update shader plane time
+    if(typeof uniformsShaderPlane !== 'undefined' && uniformsShaderPlane.uTime){
+        uniformsShaderPlane.uTime.value += delta;
+    }
 
     renderer.render(scene,camera);
 }
